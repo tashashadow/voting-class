@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏆 Бета-тест: Прототипы приложений</title>
+
+<!-- Supabase JS клиент -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #1a1a2e;
+  }
+  
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+  }
+  
+  .header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 32px;
+    text-align: center;
+    position: relative;
+  }
+  
+  .header h1 { font-size: 32px; margin-bottom: 8px; }
+  .header p { opacity: 0.9; font-size: 16px; }
+  
+  .live-badge {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: #ff4757;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    animation: pulse 2s infinite;
+  }
+  
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  
+  .screen { padding: 32px; display: none; }
+  .screen.active { display: block; }
+  
+  .welcome { text-align: center; }
+  .welcome h2 { font-size: 28px; margin-bottom: 16px; }
+  .welcome p { font-size: 16px; color: #666; margin-bottom: 24px; line-height: 1.6; }
+  
+  .progress-tracker {
+    background: #f0f4ff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+    text-align: left;
+  }
+  
+  .progress-tracker-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #667eea;
+  }
+  
+  .progress-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .progress-item {
+    background: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    border: 2px solid #e0e0e0;
+  }
+  
+  .progress-item.done {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+  }
+  
+  .input-group { margin-bottom: 20px; text-align: left; }
+  .input-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  
+  input[type="text"], input[type="password"], select, textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 16px;
+    transition: border 0.2s;
+    font-family: inherit;
+  }
+  
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #667eea;
+  }
+  
+  textarea { resize: vertical; min-height: 80px; }
+  
+  .btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    width: 100%;
+  }
+  
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102,126,234,0.4); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: #f0f0f0; color: #333; }
+  .btn-danger { background: #ff4757; }
+  .btn-small { padding: 10px 16px; font-size: 14px; }
+  
+  .criteria-block {
+    background: #f8f9ff;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 2px solid transparent;
+    transition: border 0.2s;
+  }
+  
+  .criteria-block.rated { border-color: #667eea; }
+  
+  .criteria-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .criteria-title { font-weight: 600; font-size: 16px; }
+  .criteria-desc { font-size: 13px; color: #666; margin-bottom: 12px; }
+  
+  .stars { display: flex; gap: 8px; font-size: 32px; }
+  
+  .star {
+    cursor: pointer;
+    color: #ddd;
+    transition: transform 0.15s, color 0.15s;
+    user-select: none;
+  }
+  
+  .star:hover { transform: scale(1.2); }
+  .star.active { color: #ffc107; }
+  
+  .nominations-section {
+    background: linear-gradient(135deg, #fff9e6 0%, #fff3cc 100%);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 24px;
+    border: 2px solid #ffc107;
+  }
+  
+  .nominations-title {
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .nominations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+  }
+  
+  .nomination-card {
+    background: white;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: transform 0.2s;
+  }
+  
+  .nomination-card:hover { transform: translateY(-4px); }
+  
+  .nomination-card.grand-prix {
+    background: linear-gradient(135deg, #fff9e6 0%, #ffe680 100%);
+    border: 2px solid #ffc107;
+    grid-column: 1 / -1;
+  }
+  
+  .nomination-emoji { font-size: 32px; margin-bottom: 8px; }
+  .nomination-name {
+    font-size: 13px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .nomination-winner { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .nomination-score { font-size: 14px; color: #667eea; font-weight: 600; }
+  
+  .results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; }
+  
+  .stat-badge {
+    background: #f0f0f0;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .stat-badge.live { background: #ff4757; color: white; }
+  
+  .project-card {
+    background: #f8f9ff;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 2px solid transparent;
+    transition: all 0.3s;
+  }
+  
+  .project-card.winner {
+    background: linear-gradient(135deg, #fff9e6 0%, #fff3cc 100%);
+    border-color: #ffc107;
+    box-shadow: 0 8px 24px rgba(255,193,7,0.3);
+  }
+  
+  .project-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  
+  .project-name { font-size: 20px; font-weight: 700; }
+  .project-rank { font-size: 32px; font-weight: 800; }
+  
+  .score-big {
+    font-size: 36px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .score-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+  
+  .criteria-scores {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  
+  .criterion-score {
+    background: white;
+    padding: 12px;
+    border-radius: 10px;
+    position: relative;
+  }
+  
+  .criterion-score.best {
+    background: linear-gradient(135deg, #fff9e6 0%, #ffe680 100%);
+    border: 2px solid #ffc107;
+  }
+  
+  .best-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ffc107;
+    color: #1a1a2e;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  
+  .criterion-label { font-size: 12px; color: #666; margin-bottom: 4px; }
+  .criterion-value { font-size: 18px; font-weight: 700; }
+  
+  .progress-bar {
+    height: 6px;
+    background: #e0e0e0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+  
+  .reviews-section {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 2px solid #f0f0f0;
+  }
+  
+  .review {
+    background: #f8f9ff;
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    animation: slideIn 0.4s ease;
+  }
+  
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .review-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #666;
+  }
+  
+  .review-project { font-weight: 600; color: #667eea; }
+  .review-text { font-size: 14px; line-height: 1.5; }
+  
+  .admin-panel {
+    margin-top: 32px;
+    padding: 20px;
+    background: #fff3cd;
+    border-radius: 12px;
+    border: 2px dashed #ffc107;
+  }
+  
+  .admin-locked { text-align: center; padding: 20px; }
+  .admin-locked p { font-size: 14px; color: #666; margin-bottom: 16px; }
+  
+  .admin-unlocked { display: none; }
+  .admin-unlocked.active { display: block; }
+  
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  
+  .btn-row .btn { flex: 1; min-width: 150px; }
+  
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: #1a1a2e;
+    color: white;
+    padding: 16px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 1000;
+    max-width: 90%;
+    text-align: center;
+  }
+  
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.error { background: #ff4757; }
+  .toast.success { background: #2ed573; }
+  
+  .confetti {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    pointer-events: none;
+    z-index: 9999;
+    animation: fall 3s linear forwards;
+  }
+  
+  @keyframes fall {
+    to { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+  
+  .connection-status {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .connection-status.connected { background: #d4edda; color: #155724; }
+  .connection-status.disconnected { background: #f8d7da; color: #721c24; }
+  .connection-status.connecting { background: #fff3cd; color: #856404; }
+  
+  .new-vote-flash {
+    animation: flash 1s ease;
+  }
+  
+  @keyframes flash {
+    0% { background: #fff3cc; }
+    100% { background: #f8f9ff; }
+  }
+  
+  @media (max-width: 600px) {
+    .header h1 { font-size: 24px; }
+    .screen { padding: 20px; }
+    .stars { font-size: 28px; }
+    .score-big { font-size: 28px; }
+    .live-badge { top: 12px; right: 12px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>🏆 Бета-тест: Прототипы приложений</h1>
+    <p>Оцени работы коллег в реальном времени</p>
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      LIVE
+    </div>
+  </div>
+
+  <!-- Экран 1: Приветствие -->
+  <div class="screen active" id="screen-welcome">
+    <div class="welcome">
+      <h2>Привет, бета-тестер! 👋</h2>
+      <p>Все голоса синхронизируются в реальном времени. Каждую работу можно оценить только один раз!</p>
+      
+      <div id="connection-status-container" style="margin-bottom: 20px;"></div>
+      
+      <div class="progress-tracker" id="progress-tracker">
+        <div class="progress-tracker-title">📊 Твой прогресс</div>
+        <div class="progress-list" id="progress-list"></div>
+      </div>
+      
+      <div class="input-group">
+        <label>Твой никнейм</label>
+        <input type="text" id="nickname" placeholder="например, pixel_ninja" maxlength="20">
+      </div>
+      
+      <div class="input-group">
+        <label>Какую работу оцениваем?</label>
+        <select id="project-select"></select>
+      </div>
+      
+      <button class="btn" onclick="startVoting()" id="btn-start">Начать оценку →</button>
+    </div>
+  </div>
+
+  <!-- Экран 2: Голосование -->
+  <div class="screen" id="screen-voting">
+    <h2 style="margin-bottom: 8px;">Оцени работу</h2>
+    <p style="color: #666; margin-bottom: 24px;" id="voting-project-name"></p>
+    
+    <div id="criteria-container"></div>
+    
+    <div class="input-group" style="margin-top: 24px;">
+      <label>💬 Что понравилось больше всего? (необязательно)</label>
+      <textarea id="review-text" placeholder="Конкретно: экран, фишка, решение..."></textarea>
+    </div>
+    
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToWelcome()">← Назад</button>
+      <button class="btn" onclick="submitVote()" id="btn-submit">Отправить оценку</button>
+    </div>
+  </div>
+
+  <!-- Экран 3: Результаты -->
+  <div class="screen" id="screen-results">
+    <div class="results-header">
+      <h2>🏆 Рейтинг проектов</h2>
+      <div class="stats">
+        <div class="stat-badge live">
+          <span class="live-dot"></span>
+          LIVE
+        </div>
+        <div class="stat-badge" id="stat-votes">0 оценок</div>
+        <div class="stat-badge" id="stat-testers">0 тестеров</div>
+      </div>
+    </div>
+    
+    <div class="nominations-section" id="nominations-section" style="display:none;">
+      <div class="nominations-title">🏅 Номинации</div>
+      <div class="nominations-grid" id="nominations-grid"></div>
+    </div>
+    
+    <div id="results-container"></div>
+    
+    <div class="reviews-section" id="reviews-section" style="display:none;">
+      <h3 style="margin-bottom: 16px;">💬 Отзывы тестеров</h3>
+      <div id="reviews-container"></div>
+    </div>
+    
+    <!-- АДМИН-ПАНЕЛЬ -->
+    <div class="admin-panel">
+      <div class="admin-locked" id="admin-locked">
+        <h3 style="margin-bottom: 12px;">🔐 Режим преподавателя</h3>
+        <p>Введите пароль для доступа к админ-функциям</p>
+        <div class="input-group">
+          <input type="password" id="admin-password" placeholder="Пароль">
+        </div>
+        <button class="btn btn-small" onclick="unlockAdmin()">Войти</button>
+      </div>
+      
+      <div class="admin-unlocked" id="admin-unlocked">
+        <h3 style="margin-bottom: 12px;">⚙️ Панель преподавателя</h3>
+        <p style="font-size: 14px; color: #666; margin-bottom: 12px;">✅ Режим активен</p>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="exportCSV()">📊 Экспорт в CSV</button>
+          <button class="btn" onclick="launchConfetti()">🎉 Конфетти</button>
+          <button class="btn btn-secondary" onclick="openSupabase()">🗄️ Открыть базу</button>
+          <button class="btn btn-danger" onclick="resetAll()">🗑 Сбросить оценки</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="btn-row" style="margin-top: 24px;">
+      <button class="btn" onclick="goToWelcome()">➕ Оценить ещё работу</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ============================================
+  // ⚙️ НАСТРОЙКИ — ОБЯЗАТЕЛЬНО ЗАПОЛНИ!
+  // ============================================
+  
+  // 🔐 ПАРОЛЬ ПРЕПОДАВАТЕЛЯ (измени на свой!)
+  const TEACHER_PASSWORD = "algoritmika_shadow";
+  
+  // 🔗 SUPABASE КЛЮЧИ (скопируй из Settings → API)
+  const SUPABASE_URL = "https://ddbuzzaaezcjelqpiomu.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_C_cm-PQhs78baZ3f803TOw_q9p3J51H";
+  
+  // Ссылка на админку Supabase (для кнопки "Открыть базу")
+  const SUPABASE_DASHBOARD_URL = "https://supabase.com/dashboard/project/ddbuzzaaezcjelqpiomu";
+  
+  // Список проектов (измени под свой класс)
+  const PROJECTS = [
+    "Даня",
+    "Даша",
+    "Денис Е",
+    "Диана З",
+    "Диана И",
+    "Денис К",	
+    "Саша",		
+    "Снежана",	
+    "Никита",		
+    "Илья",	
+    "Марина",	
+    "Влад",		
+    "Костя"
+  ];
+  
+  // Критерии + номинации
+  const CRITERIA = [
+    { key: "idea", emoji: "💡", title: "Идея", nomination: "Самая крутая идея", desc: "Насколько тема интересна и решает реальную проблему" },
+    { key: "visual", emoji: "🎨", title: "Визуал", nomination: "Лучший визуал", desc: "Цвета, типографика, стиль" },
+    { key: "adaptive", emoji: "📐", title: "Адаптивность", nomination: "Мастер Auto Layout", desc: "Сетки, отступы, ничего не «едет»" },
+    { key: "interactive", emoji: "🔗", title: "Интерактив", nomination: "Король интерактива", desc: "Переходы, оверлеи, Smart Animate" },
+    { key: "cohesion", emoji: "🧩", title: "Целостность", nomination: "Самый цельный проект", desc: "Все экраны в одном стиле" }
+  ];
+  
+  // ============================================
+  // 🆔 УНИКАЛЬНЫЙ ID УСТРОЙСТВА
+  // ============================================
+  
+  function getDeviceId() {
+    let deviceId = localStorage.getItem('voting_device_id');
+    if (!deviceId) {
+      deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem('voting_device_id', deviceId);
+    }
+    return deviceId;
+  }
+  
+  const DEVICE_ID = getDeviceId();
+  
+  // ============================================
+  // 🔷 SUPABASE ИНИЦИАЛИЗАЦИЯ
+  // ============================================
+  
+  let supabase = null;
+  let isOnline = false;
+  let currentProject = null;
+  let currentRatings = {};
+  let allVotes = [];
+  let isAdminUnlocked = false;
+  
+  function initSupabase() {
+    try {
+      if (SUPABASE_URL.includes("ВСТАВЬТЕ")) {
+        updateConnectionStatus('disconnected', '⚠️ Supabase не настроен');
+        return;
+      }
+      
+      // Создаём клиент
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      
+      // Загружаем начальные данные
+      loadVotes();
+      
+      // Подписываемся на real-time обновления
+      supabase
+        .channel('votes-channel')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'votes' },
+          (payload) => {
+            console.log('Изменение в базе:', payload);
+            loadVotes(); // Перезагружаем все данные
+          }
+        )
+        .subscribe((status) => {
+          console.log('Realtime статус:', status);
+          if (status === 'SUBSCRIBED') {
+            isOnline = true;
+            updateConnectionStatus('connected', '✅ Онлайн (real-time)');
+          } else if (status === 'CHANNEL_ERROR') {
+            isOnline = false;
+            updateConnectionStatus('disconnected', '❌ Ошибка подключения');
+          }
+        });
+      
+    } catch (e) {
+      console.error('Ошибка Supabase:', e);
+      updateConnectionStatus('disconnected', '❌ Ошибка Supabase');
+    }
+  }
+  
+  async function loadVotes() {
+    if (!supabase) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('votes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      allVotes = data || [];
+      renderResults();
+      updateProgressTracker();
+    } catch (e) {
+      console.error('Ошибка загрузки:', e);
+    }
+  }
+  
+  function updateConnectionStatus(status, text) {
+    document.getElementById('connection-status-container').innerHTML = 
+      `<div class="connection-status ${status}">${text}</div>`;
+  }
+  
+  // ============================================
+  // 🚫 ПРОВЕРКА ПОВТОРНЫХ ГОЛОСОВ
+  // ============================================
+  
+  function getVotedProjects() {
+    return allVotes
+      .filter(v => v.device_id === DEVICE_ID)
+      .map(v => v.project);
+  }
+  
+  function hasVotedForProject(project) {
+    return allVotes.some(v => v.device_id === DEVICE_ID && v.project === project);
+  }
+  
+  function updateProgressTracker() {
+    const voted = getVotedProjects();
+    const list = document.getElementById('progress-list');
+    
+    list.innerHTML = PROJECTS.map(p => {
+      const isDone = voted.includes(p);
+      return `<div class="progress-item ${isDone ? 'done' : ''}">
+        ${isDone ? '✅' : '⬜'} ${p.split(' — ')[0]}
+      </div>`;
+    }).join('');
+    
+    const select = document.getElementById('project-select');
+    const currentValue = select.value;
+    
+    select.innerHTML = PROJECTS.map(p => {
+      const voted = hasVotedForProject(p);
+      return `<option value="${p}" ${voted ? 'disabled' : ''}>
+        ${p}${voted ? ' ✅ (уже оценено)' : ''}
+      </option>`;
+    }).join('');
+    
+    if (hasVotedForProject(currentValue)) {
+      const firstAvailable = PROJECTS.find(p => !hasVotedForProject(p));
+      if (firstAvailable) select.value = firstAvailable;
+    }
+  }
+  
+  // ============================================
+  // 🎯 ОСНОВНАЯ ЛОГИКА
+  // ============================================
+  
+  function init() {
+    updateProgressTracker();
+    initSupabase();
+  }
+  
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+  
+  function goToWelcome() {
+    updateProgressTracker();
+    showScreen('screen-welcome');
+  }
+  
+  function startVoting() {
+    const nickname = document.getElementById('nickname').value.trim();
+    const project = document.getElementById('project-select').value;
+    
+    if (!nickname) {
+      showToast('Введи свой никнейм 🙃', 'error');
+      return;
+    }
+    
+    if (hasVotedForProject(project)) {
+      showToast(`Ты уже оценил работу «${project}»!`, 'error');
+      return;
+    }
+    
+    currentProject = project;
+    currentRatings = {};
+    
+    document.getElementById('voting-project-name').textContent = `Оцениваешь: ${project}`;
+    renderCriteria();
+    showScreen('screen-voting');
+  }
+  
+  function renderCriteria() {
+    const container = document.getElementById('criteria-container');
+    container.innerHTML = CRITERIA.map(c => `
+      <div class="criteria-block" id="block-${c.key}">
+        <div class="criteria-header">
+          <div class="criteria-title">${c.emoji} ${c.title}</div>
+          <div class="criteria-value" id="value-${c.key}">—</div>
+        </div>
+        <div class="criteria-desc">${c.desc}</div>
+        <div class="stars" data-criteria="${c.key}">
+          ${[1,2,3,4,5].map(n => `<span class="star" data-value="${n}">★</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+    
+    document.querySelectorAll('.stars').forEach(starsBlock => {
+      const criteria = starsBlock.dataset.criteria;
+      const stars = starsBlock.querySelectorAll('.star');
+      
+      stars.forEach(star => {
+        star.addEventListener('click', () => {
+          const value = parseInt(star.dataset.value);
+          currentRatings[criteria] = value;
+          updateStarsDisplay(criteria, value);
+        });
+      });
+    });
+  }
+  
+  function updateStarsDisplay(criteria, value) {
+    const block = document.getElementById(`block-${criteria}`);
+    const stars = block.querySelectorAll('.star');
+    stars.forEach((s, i) => s.classList.toggle('active', i < value));
+    block.classList.add('rated');
+    document.getElementById(`value-${criteria}`).textContent = `${value} / 5`;
+  }
+  
+  async function submitVote() {
+    const missing = CRITERIA.filter(c => !currentRatings[c.key]);
+    if (missing.length > 0) {
+      showToast(`Оцени все критерии! Осталось: ${missing.length}`, 'error');
+      return;
+    }
+    
+    if (hasVotedForProject(currentProject)) {
+      showToast(`Эту работу ты уже оценил!`, 'error');
+      goToWelcome();
+      return;
+    }
+    
+    const nickname = document.getElementById('nickname').value.trim();
+    const review = document.getElementById('review-text').value.trim();
+    
+    const vote = {
+      device_id: DEVICE_ID,
+      nickname,
+      project: currentProject,
+      idea: currentRatings.idea,
+      visual: currentRatings.visual,
+      adaptive: currentRatings.adaptive,
+      interactive: currentRatings.interactive,
+      cohesion: currentRatings.cohesion,
+      review
+    };
+    
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = true;
+    btn.textContent = 'Отправка...';
+    
+    try {
+      if (supabase && isOnline) {
+        const { error } = await supabase.from('votes').insert(vote);
+        if (error) throw error;
+      } else {
+        throw new Error('Нет подключения к Supabase');
+      }
+      
+      showToast('✅ Оценка сохранена! Спасибо!', 'success');
+      document.getElementById('review-text').value = '';
+      currentRatings = {};
+      
+      setTimeout(() => {
+        showScreen('screen-results');
+      }, 800);
+    } catch (e) {
+      console.error(e);
+      showToast('❌ Ошибка отправки: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Отправить оценку';
+    }
+  }
+  
+  // ============================================
+  // 🔐 АДМИН-ПАНЕЛЬ
+  // ============================================
+  
+  function unlockAdmin() {
+    const password = document.getElementById('admin-password').value;
+    if (password === TEACHER_PASSWORD) {
+      isAdminUnlocked = true;
+      document.getElementById('admin-locked').style.display = 'none';
+      document.getElementById('admin-unlocked').classList.add('active');
+      showToast('🔓 Режим преподавателя активирован', 'success');
+    } else {
+      showToast('❌ Неверный пароль', 'error');
+    }
+  }
+  
+  function openSupabase() {
+    if (!isAdminUnlocked) {
+      showToast('🔒 Нужен режим преподавателя', 'error');
+      return;
+    }
+    window.open(SUPABASE_DASHBOARD_URL, '_blank');
+  }
+  
+  async function resetAll() {
+    if (!isAdminUnlocked) {
+      showToast('🔒 Нужен режим преподавателя', 'error');
+      return;
+    }
+    if (!confirm('⚠️ Удалить ВСЕ оценки?')) return;
+    if (!confirm('Точно-точно? Все данные будут потеряны!')) return;
+    
+    try {
+      const { error } = await supabase.from('votes').delete().neq('id', 0);
+      if (error) throw error;
+      
+      showToast('🗑 Все оценки удалены', 'success');
+      loadVotes();
+    } catch (e) {
+      console.error(e);
+      showToast('❌ Ошибка удаления', 'error');
+    }
+  }
+  
+  // ============================================
+  // 📊 РЕНДЕР РЕЗУЛЬТАТОВ
+  // ============================================
+  
+  function renderResults() {
+    const votes = allVotes;
+    
+    const uniqueTesters = new Set(votes.map(v => v.device_id)).size;
+    document.getElementById('stat-votes').textContent = `${votes.length} оценок`;
+    document.getElementById('stat-testers').textContent = `${uniqueTesters} тестеров`;
+    
+    const projectStats = {};
+    PROJECTS.forEach(p => {
+      projectStats[p] = { total: 0, count: 0, criteria: {} };
+      CRITERIA.forEach(c => projectStats[p].criteria[c.key] = { total: 0, count: 0 });
+    });
+    
+    votes.forEach(v => {
+      if (!projectStats[v.project]) return;
+      projectStats[v.project].count++;
+      CRITERIA.forEach(c => {
+        if (v[c.key]) {
+          projectStats[v.project].criteria[c.key].total += v[c.key];
+          projectStats[v.project].criteria[c.key].count++;
+        }
+      });
+      const sum = CRITERIA.reduce((acc, c) => acc + (v[c.key] || 0), 0);
+      projectStats[v.project].total += sum;
+    });
+    
+    const bestByCriteria = {};
+    CRITERIA.forEach(c => {
+      let best = { name: null, avg: 0 };
+      PROJECTS.forEach(p => {
+        const cs = projectStats[p].criteria[c.key];
+        const avg = cs.count > 0 ? cs.total / cs.count : 0;
+        if (avg > best.avg) best = { name: p, avg };
+      });
+      bestByCriteria[c.key] = best;
+    });
+    
+    const ranked = PROJECTS.map(p => {
+      const stats = projectStats[p];
+      const avg = stats.count > 0 ? stats.total / (stats.count * CRITERIA.length) : 0;
+      const criteriaAvg = {};
+      CRITERIA.forEach(c => {
+        const cs = stats.criteria[c.key];
+        criteriaAvg[c.key] = cs.count > 0 ? cs.total / cs.count : 0;
+      });
+      return { name: p, avg, count: stats.count, criteriaAvg };
+    }).sort((a, b) => b.avg - a.avg);
+    
+    renderNominations(bestByCriteria, ranked);
+    
+    const container = document.getElementById('results-container');
+    if (ranked.every(r => r.count === 0)) {
+      container.innerHTML = '<p style="text-align:center; color:#666; padding:40px;">Пока нет оценок. Будь первым!</p>';
+      return;
+    }
+    
+    const medals = ['🥇', '🥈', '🥉'];
+    container.innerHTML = ranked.map((p, i) => {
+      const isWinner = i === 0 && p.count > 0;
+      return `
+        <div class="project-card ${isWinner ? 'winner' : ''}">
+          <div class="project-top">
+            <div>
+              <div class="project-rank">${medals[i] || `#${i+1}`}</div>
+              <div class="project-name">${p.name}</div>
+              <div style="font-size:13px; color:#666; margin-top:4px;">Оценок: ${p.count}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="score-big">${p.count > 0 ? p.avg.toFixed(2) : '—'}</div>
+              <div class="score-label">средний балл</div>
+            </div>
+          </div>
+          ${p.count > 0 ? `
+            <div class="criteria-scores">
+              ${CRITERIA.map(c => {
+                const isBest = bestByCriteria[c.key].name === p.name;
+                return `
+                  <div class="criterion-score ${isBest ? 'best' : ''}">
+                    ${isBest ? '<div class="best-badge">🏆 ЛУЧШИЙ</div>' : ''}
+                    <div class="criterion-label">${c.emoji} ${c.title}</div>
+                    <div class="criterion-value">${p.criteriaAvg[c.key].toFixed(1)}</div>
+                    <div class="progress-bar">
+                      <div class="progress-fill" style="width:${(p.criteriaAvg[c.key] / 5) * 100}%"></div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+    
+    const reviews = votes.filter(v => v.review && v.review.trim());
+    const reviewsSection = document.getElementById('reviews-section');
+    const reviewsContainer = document.getElementById('reviews-container');
+    
+    if (reviews.length > 0) {
+      reviewsSection.style.display = 'block';
+      reviewsContainer.innerHTML = reviews.slice(0, 20).map(r => `
+        <div class="review">
+          <div class="review-header">
+            <span class="review-project">${r.project}</span>
+            <span>@${escapeHtml(r.nickname)}</span>
+          </div>
+          <div class="review-text">${escapeHtml(r.review)}</div>
+        </div>
+      `).join('');
+    } else {
+      reviewsSection.style.display = 'none';
+    }
+  }
+  
+  function renderNominations(bestByCriteria, ranked) {
+    const section = document.getElementById('nominations-section');
+    const grid = document.getElementById('nominations-grid');
+    
+    if (ranked.every(r => r.count === 0)) {
+      section.style.display = 'none';
+      return;
+    }
+    
+    section.style.display = 'block';
+    const grandPrix = ranked[0];
+    
+    let html = `
+      <div class="nomination-card grand-prix">
+        <div class="nomination-emoji">🏆</div>
+        <div class="nomination-name">Гран-при</div>
+        <div class="nomination-winner">${grandPrix.name}</div>
+        <div class="nomination-score">Средний балл: ${grandPrix.avg.toFixed(2)}</div>
+      </div>
+    `;
+    
+    CRITERIA.forEach(c => {
+      const best = bestByCriteria[c.key];
+      if (best.avg > 0) {
+        html += `
+          <div class="nomination-card">
+            <div class="nomination-emoji">${c.emoji}</div>
+            <div class="nomination-name">${c.nomination}</div>
+            <div class="nomination-winner">${best.name}</div>
+            <div class="nomination-score">${best.avg.toFixed(1)} / 5.0</div>
+          </div>
+        `;
+      }
+    });
+    
+    grid.innerHTML = html;
+  }
+  
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  
+  function exportCSV() {
+    if (!isAdminUnlocked) {
+      showToast('🔒 Нужен режим преподавателя', 'error');
+      return;
+    }
+    if (allVotes.length === 0) {
+      showToast('Нет данных', 'error');
+      return;
+    }
+    
+    const headers = ['Ник', 'Проект', ...CRITERIA.map(c => c.title), 'Отзыв', 'Дата'];
+    const rows = allVotes.map(v => [
+      v.nickname,
+      v.project,
+      ...CRITERIA.map(c => v[c.key] || ''),
+      v.review || '',
+      v.created_at ? new Date(v.created_at).toLocaleString('ru-RU') : ''
+    ]);
+    
+    const csv = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `voting_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showToast('📊 CSV скачан', 'success');
+  }
+  
+  function launchConfetti() {
+    if (!isAdminUnlocked) {
+      showToast('🔒 Нужен режим преподавателя', 'error');
+      return;
+    }
+    const colors = ['#667eea', '#764ba2', '#ffc107', '#ff4757', '#2ed573'];
+    for (let i = 0; i < 100; i++) {
+      const confetti = document.createElement('div');
+      confetti.className = 'confetti';
+      confetti.style.left = Math.random() * 100 + 'vw';
+      confetti.style.top = '-10px';
+      confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+      confetti.style.animationDelay = Math.random() * 2 + 's';
+      confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+      document.body.appendChild(confetti);
+      setTimeout(() => confetti.remove(), 5000);
+    }
+    showToast('🎉 Поздравляем победителей!', 'success');
+  }
+  
+  function showToast(message, type = '') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast show ' + type;
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+  
+  init();
+</script>
+
+</body>
+</html>
