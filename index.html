@@ -475,10 +475,32 @@
 		</div>
 	  </div>
 
+  <!-- Экран 0: Ввод кода доступа -->
+  <div class="screen" id="screen-code">
+    <div class="welcome">
+      <h2>🎫 Введи свой код доступа</h2>
+      <p>Каждый ученик получает уникальный код от преподавателя. Код работает только на одном устройстве.</p>
+      
+      <div id="connection-status-container" style="margin-bottom: 20px;"></div>
+      
+      <div class="input-group">
+        <label>Твой личный код</label>
+        <input type="text" id="access-code-input" placeholder="например, DANYA-X7K9" maxlength="20" style="text-transform: uppercase; text-align: center; font-size: 20px; letter-spacing: 2px;">
+      </div>
+      
+      <button class="btn" onclick="submitCode()" id="btn-submit-code">Войти →</button>
+      
+      <p style="margin-top: 20px; font-size: 13px; color: #999;">
+        Забыл код? Обратись к преподавателю.
+      </p>
+    </div>
+  </div>
+
+
 	  <!-- Экран 1: Приветствие -->
 	  <div class="screen active" id="screen-welcome">
 		<div class="welcome">
-		  <h2>Привет, бета-тестер! 👋</h2>
+		  <h2>Привет, бета-тестер <div id="user-info"></div>! 👋</h2>
 		  <p>Все голоса синхронизируются в реальном времени. Каждую работу можно оценить только один раз!</p>
 		  
 		  <div id="connection-status-container" style="margin-bottom: 20px;"></div>
@@ -488,10 +510,6 @@
 			<div class="progress-list" id="progress-list"></div>
 		  </div>
 		  
-		  <div class="input-group">
-			<label>Твой никнейм</label>
-			<input type="text" id="nickname" placeholder="например, pixel_ninja" maxlength="20">
-		  </div>
 		  
 		  <div class="input-group">
 			<label>Какую работу оцениваем?</label>
@@ -565,6 +583,7 @@
 			  <button class="btn" onclick="launchConfetti()">🎉 Конфетти</button>
 			  <button class="btn btn-secondary" onclick="openSupabase()">🗄️ Открыть базу</button>
 			  <button class="btn btn-danger" onclick="resetAll()">🗑 Сбросить оценки</button>
+			  <button class="btn btn-secondary" onclick="showCodesStatus()">🎫 Статус кодов</button>
 			</div>
 		  </div>
 		</div>
@@ -600,6 +619,24 @@
     { key: "cohesion", emoji: "🧩", title: "Целостность", nomination: "Самый цельный проект", desc: "Все экраны в одном стиле" }
   ];
   
+  // 🎫 УНИКАЛЬНЫЕ КОДЫ ДОСТУПА (один на ученика)
+  // Сгенерированы случайно, можно заменить на свои
+  const ACCESS_CODES = {
+    "DANYA-X7K9": "Даня",
+    "DASHA-M3P2": "Даша",
+    "DENISE-L8Q4": "Денис Е",
+    "DIANAZ-N5R1": "Диана З",
+    "DIANAI-T6S7": "Диана И",
+    "DENISK-W2U3": "Денис К",
+    "SASHA-J9V8": "Саша",
+    "SNEZH-K4X5": "Снежана",
+    "NIKITA-F1Y6": "Никита",
+    "ILYA-H7Z9": "Илья",
+    "MARINA-B3A2": "Марина",
+    "VLAD-P8C4": "Влад",
+    "KOSTYA-G6D1": "Костя"
+  };
+  
   // ============================================
   // 🆔 УНИКАЛЬНЫЙ ID УСТРОЙСТВА
   // ============================================
@@ -614,6 +651,23 @@
   }
   
   const DEVICE_ID = getDeviceId();
+  
+  // 🎫 ПРОВЕРКА КОДА ДОСТУПА
+  function getMyCode() {
+    return localStorage.getItem('voting_my_code');
+  }
+  
+  function setMyCode(code) {
+    localStorage.setItem('voting_my_code', code);
+  }
+  
+  function getMyName() {
+    return localStorage.getItem('voting_my_name');
+  }
+  
+  function setMyName(name) {
+    localStorage.setItem('voting_my_name', name);
+  }
   
   // ============================================
   // 🔷 SUPABASE ИНИЦИАЛИЗАЦИЯ
@@ -634,13 +688,12 @@
       }
       
       supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      loadVotes(); // Первичная загрузка
+      loadVotes();
       
-      // Слушаем изменения от ДРУГИХ пользователей
       supabaseClient
         .channel('votes-channel')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'votes' }, () => {
-          loadVotes(); // Обновляем данные, когда кто-то другой проголосовал
+          loadVotes();
         })
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
@@ -672,6 +725,30 @@
     } catch (e) {
       console.error('Ошибка загрузки:', e);
     }
+  }
+  
+  // 🎫 ПРОВЕРКА: ИСПОЛЬЗОВАН ЛИ КОД НА ДРУГОМ УСТРОЙСТВЕ
+  async function checkCodeAvailability(code, currentDeviceId) {
+    if (!supabaseClient) return { available: false, reason: 'no_connection' };
+    
+    const { data, error } = await supabaseClient
+      .from('votes')
+      .select('device_id')
+      .eq('access_code', code)
+      .limit(1);
+    
+    if (error) {
+      console.error(error);
+      return { available: false, reason: 'error' };
+    }
+    
+    if (data.length === 0) return { available: true };
+    
+    // Код уже использован
+    if (data[0].device_id === currentDeviceId) {
+      return { available: true, alreadyUsed: true }; // На этом же устройстве — ОК
+    }
+    return { available: false, reason: 'used_on_other_device' };
   }
   
   function updateConnectionStatus(status, text) {
@@ -722,11 +799,89 @@
   }
   
   // ============================================
+  // 🎫 ЭКРАН ВХОДА ПО КОДУ
+  // ============================================
+  
+  function showCodeScreen() {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-code').classList.add('active');
+    window.scrollTo(0, 0);
+  }
+  
+  async function submitCode() {
+    const input = document.getElementById('access-code-input');
+    const code = input.value.trim().toUpperCase();
+    const btn = document.getElementById('btn-submit-code');
+    
+    if (!code) {
+      showToast('Введи свой код доступа 🎫', 'error');
+      return;
+    }
+    
+    // Проверяем, существует ли такой код
+    if (!ACCESS_CODES[code]) {
+      showToast('❌ Неверный код. Проверь и попробуй снова', 'error');
+      return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Проверяем...';
+    
+    // Проверяем, не использован ли код на другом устройстве
+    const check = await checkCodeAvailability(code, DEVICE_ID);
+    
+    if (!check.available) {
+      if (check.reason === 'used_on_other_device') {
+        showToast('⚠️ Этот код уже использован на другом устройстве. Обратись к преподавателю.', 'error');
+      } else {
+        showToast('❌ Ошибка проверки. Попробуй ещё раз.', 'error');
+      }
+      btn.disabled = false;
+      btn.textContent = 'Войти';
+      return;
+    }
+    
+    // Сохраняем код и имя
+    setMyCode(code);
+    setMyName(ACCESS_CODES[code]);
+    
+    showToast(`✅ Привет, ${ACCESS_CODES[code]}!`, 'success');
+    
+    setTimeout(() => {
+      updateWelcomeScreen();
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById('screen-welcome').classList.add('active');
+      btn.disabled = false;
+      btn.textContent = 'Войти';
+    }, 800);
+  }
+  
+  function updateWelcomeScreen() {
+    const myName = getMyName();
+    const myCode = getMyCode();
+    const userInfo = document.getElementById('user-info');
+    if (userInfo && myName) {
+      userInfo.innerHTML = `
+        <div style="background:#d4edda; padding:12px 16px; border-radius:12px; margin-bottom:16px; color:#155724; font-size:14px;">
+          👤 Ты вошёл как <strong>${myName}</strong><br>
+          <span style="opacity:0.7; font-size:12px;">Код: ${myCode}</span>
+        </div>
+      `;
+    }
+  }
+  
+  // ============================================
   // 🎯 ОСНОВНАЯ ЛОГИКА
   // ============================================
   
   function init() {
-    updateProgressTracker();
+    // Проверяем, есть ли уже код
+    if (getMyCode() && ACCESS_CODES[getMyCode()]) {
+      updateWelcomeScreen();
+      document.getElementById('screen-welcome').classList.add('active');
+    } else {
+      showCodeScreen();
+    }
     initSupabase();
   }
   
@@ -742,13 +897,8 @@
   }
   
   function startVoting() {
-    const nickname = document.getElementById('nickname').value.trim();
     const project = document.getElementById('project-select').value;
     
-    if (!nickname) {
-      showToast('Введи свой никнейм 🙃', 'error');
-      return;
-    }
     if (hasVotedForProject(project)) {
       showToast(`Ты уже оценил работу «${project}»!`, 'error');
       return;
@@ -794,7 +944,6 @@
     document.getElementById(`value-${criteria}`).textContent = `${value} / 5`;
   }
   
-  // 🚀 ГЛАВНОЕ ИЗМЕНЕНИЕ: МГНОВЕННОЕ ОБНОВЛЕНИЕ (Optimistic UI)
   async function submitVote() {
     const missing = CRITERIA.filter(c => !currentRatings[c.key]);
     if (missing.length > 0) {
@@ -807,32 +956,29 @@
       return;
     }
     
-    // Формируем объект голоса с текущей датой
     const vote = {
       device_id: DEVICE_ID,
-      nickname: document.getElementById('nickname').value.trim(),
+      access_code: getMyCode(),
+      nickname: getMyName(), // Используем имя из кода, а не введённое вручную
       project: currentProject,
       idea: currentRatings.idea,
       visual: currentRatings.visual,
       adaptive: currentRatings.adaptive,
       interactive: currentRatings.interactive,
       cohesion: currentRatings.cohesion,
-      review: document.getElementById('review-text').value.trim(),
-      created_at: new Date().toISOString() // Добавляем дату сразу для локального отображения
+      review: document.getElementById('review-text').value.trim()
     };
     
     const btn = document.getElementById('btn-submit');
     btn.disabled = true;
     btn.textContent = 'Обновляем рейтинг...';
     
-    // 1. МГНОВЕННО добавляем голос в локальный массив
-    allVotes.unshift(vote); 
+    const localVote = { ...vote, created_at: new Date().toISOString() };
+    allVotes.unshift(localVote);
     
-    // 2. МГНОВЕННО перерисовываем экран с результатами
     renderResults();
     updateProgressTracker();
     
-    // 3. В ФОНЕ отправляем данные в Supabase
     try {
       if (supabaseClient && isOnline) {
         const { error } = await supabaseClient.from('votes').insert(vote);
@@ -847,7 +993,6 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Отправить оценку';
-      // Небольшая задержка, чтобы ученик успел прочитать "Оценка сохранена"
       setTimeout(() => showScreen('screen-results'), 600);
     }
   }
@@ -886,13 +1031,40 @@
     }
   }
   
+  // 🎫 ПОКАЗАТЬ ИСПОЛЬЗОВАННЫЕ КОДЫ (для учителя)
+  function showCodesStatus() {
+    if (!isAdminUnlocked) return showToast('🔒 Нужен режим преподавателя', 'error');
+    
+    const usedCodes = new Set(allVotes.map(v => v.access_code).filter(Boolean));
+    let html = '<h3 style="margin-bottom:12px;">🎫 Статус кодов доступа</h3>';
+    html += '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:8px;">';
+    
+    Object.entries(ACCESS_CODES).forEach(([code, name]) => {
+      const isUsed = usedCodes.has(code);
+      html += `<div style="padding:10px; border-radius:8px; background:${isUsed ? '#d4edda' : '#fff3cd'}; color:${isUsed ? '#155724' : '#856404'}; font-size:13px;">
+        <strong>${code}</strong><br>
+        ${name} ${isUsed ? '✅' : '⬜'}
+      </div>`;
+    });
+    
+    html += '</div>';
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;';
+    modal.innerHTML = `<div style="background:white; border-radius:16px; padding:24px; max-width:600px; width:100%; max-height:80vh; overflow-y:auto;">
+      ${html}
+      <button onclick="this.parentElement.parentElement.remove()" style="margin-top:16px; width:100%; padding:12px; background:#667eea; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Закрыть</button>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  
   // ============================================
   // 📊 РЕНДЕР РЕЗУЛЬТАТОВ
   // ============================================
   
   function renderResults() {
     const votes = allVotes;
-    const uniqueTesters = new Set(votes.map(v => v.device_id)).size;
+    const uniqueTesters = new Set(votes.map(v => v.access_code || v.device_id)).size;
     document.getElementById('stat-votes').textContent = `${votes.length} оценок`;
     document.getElementById('stat-testers').textContent = `${uniqueTesters} тестеров`;
     
@@ -1032,11 +1204,16 @@
     if (!isAdminUnlocked) return showToast('🔒 Нужен режим преподавателя', 'error');
     if (allVotes.length === 0) return showToast('Нет данных', 'error');
     
-    const headers = ['Ник', 'Проект', ...CRITERIA.map(c => c.title), 'Отзыв', 'Дата'];
+    const headers = ['Код', 'Имя', 'Проект', ...CRITERIA.map(c => c.title), 'Отзыв', 'Дата'];
     const rows = allVotes.map(v => [
-      v.nickname, v.project, ...CRITERIA.map(c => v[c.key] || ''), v.review || '',
-      v.created_at ? new Date(v.created_at).toLocaleString('ru-RU') : ''
+      v.access_code || '',
+      v.nickname, 
+      v.project, 
+      ...CRITERIA.map(c => v[c.key] || ''), 
+      v.review || '',
+      v.created_at ? new Date(v.created_at).toLocaleString('ru-RU') : 'Нет даты'
     ]);
+    
     const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
     
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
@@ -1071,7 +1248,6 @@
     setTimeout(() => toast.classList.remove('show'), 3000);
   }
   
-  // Запуск
   init();
 </script>
 
